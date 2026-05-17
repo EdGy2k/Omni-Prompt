@@ -194,26 +194,32 @@ const ComposerFooterModeControls = memo(function ComposerFooterModeControls(prop
     <>
       <Separator orientation="vertical" className="mx-0.5 hidden h-4 sm:block" />
 
-      <Button
-        variant="ghost"
-        className={cn(
-          "shrink-0 whitespace-nowrap px-2 sm:px-3",
-          props.workflowEnabled
-            ? "text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
-            : "text-muted-foreground/70 hover:text-foreground/80",
-        )}
-        size="sm"
-        type="button"
-        onClick={() => props.onToggleWorkflow(!props.workflowEnabled)}
-        title={
-          props.workflowEnabled
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              className={cn(
+                "shrink-0 whitespace-nowrap px-2 sm:px-3",
+                props.workflowEnabled
+                  ? "text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                  : "text-muted-foreground/70 hover:text-foreground/80",
+              )}
+              size="sm"
+              type="button"
+              onClick={() => props.onToggleWorkflow(!props.workflowEnabled)}
+            />
+          }
+        >
+          <WorkflowIcon />
+          <span className="sr-only sm:not-sr-only">Ged</span>
+        </TooltipTrigger>
+        <TooltipPopup side="top">
+          {props.workflowEnabled
             ? "Ged workflow is on: inject prompts and enforce checkpoints"
-            : "Ged workflow is off: run provider turns normally"
-        }
-      >
-        <WorkflowIcon />
-        <span className="sr-only sm:not-sr-only">Ged</span>
-      </Button>
+            : "Ged workflow is off: run provider turns normally"}
+        </TooltipPopup>
+      </Tooltip>
 
       <Separator orientation="vertical" className="mx-0.5 hidden h-4 sm:block" />
 
