@@ -3,9 +3,11 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import type { PlatformError } from "effect/PlatformError";
 import {
+  DEFAULT_STANDARDS_CONTENT,
   GED_DIRECTORY,
   GED_GITIGNORE,
   INITIAL_CHECKPOINT_STATE_JSON,
+  KNOWN_STANDARDS_FILES,
   TIER1_FILES,
   TIER2_FILES,
   TIER3_FILES,
@@ -31,6 +33,54 @@ const writeIfMissing = (
     if (!exists) {
       yield* fs.writeFileString(filePath, content);
     }
+  });
+
+export const discoverStandards = (
+  projectRoot: string,
+): Effect.Effect<ReadonlyArray<string>, PlatformError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+
+    const results = yield* Effect.forEach(KNOWN_STANDARDS_FILES, (fileName) =>
+      Effect.gen(function* () {
+        const filePath = path.join(projectRoot, fileName);
+        const found = yield* Effect.orElseSucceed(fs.exists(filePath), () => false);
+        return found ? fileName : undefined;
+      }),
+    );
+
+    return results.filter((f): f is string => f !== undefined);
+  });
+
+const formatStandardsContent = (discoveredFiles: ReadonlyArray<string>): string => {
+  const header = "# Standards\n\n> Auto-discovered project standards.\n\n## Discovered Files\n";
+  const entries = discoveredFiles.map((f) => `\n- [${f}](../${f})`).join("");
+  return `${header}${entries}\n`;
+};
+
+export const populateStandards = (
+  projectRoot: string,
+  discoveredFiles: ReadonlyArray<string>,
+): Effect.Effect<void, PlatformError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    if (discoveredFiles.length === 0) {
+      return;
+    }
+
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const standardsPath = path.join(projectRoot, GED_DIRECTORY, "STANDARDS.md");
+
+    const exists = yield* fs.exists(standardsPath);
+    if (exists) {
+      const currentContent = yield* fs.readFileString(standardsPath);
+      if (currentContent !== DEFAULT_STANDARDS_CONTENT) {
+        return;
+      }
+    }
+
+    yield* fs.writeFileString(standardsPath, formatStandardsContent(discoveredFiles));
   });
 
 export const bootstrapGedDirectory = (
@@ -59,4 +109,7 @@ export const bootstrapGedDirectory = (
       yield* writeIfMissing(path.join(runtimeDir, file.path), file.content);
     }
     yield* writeIfMissing(path.join(runtimeDir, "checkpoints.json"), INITIAL_CHECKPOINT_STATE_JSON);
+
+    const discovered = yield* discoverStandards(projectRoot);
+    yield* populateStandards(projectRoot, discovered);
   });

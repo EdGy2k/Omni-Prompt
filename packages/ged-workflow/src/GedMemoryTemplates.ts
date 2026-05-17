@@ -47,6 +47,20 @@ export const TIER3_FILES: ReadonlyArray<{ readonly path: string; readonly conten
   },
 ];
 
+export const KNOWN_STANDARDS_FILES: ReadonlyArray<string> = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  ".cursorrules",
+  ".clinerules",
+  ".editorconfig",
+  ".prettierrc",
+  ".eslintrc.json",
+  "biome.json",
+  "deno.json",
+];
+
+export const DEFAULT_STANDARDS_CONTENT = "# Standards\n\n> Imported repo-wide agent standards.\n";
+
 export const GED_GITIGNORE = "runtime/\n";
 
 export const INITIAL_CHECKPOINT_STATE = {
