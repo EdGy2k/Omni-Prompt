@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 GedCode is a fork of [t3code](https://github.com/pingdotgg/t3code) being rebranded. The goal is to make a custom workflow (from [ged-mono](https://github.com/edgyarmati/ged-mono)) work out of the box through GedCode's supported harnesses without modifying them.
 
-**Branch strategy:** `gedcode` is the working branch. `main` stays clean for syncing upstream — never commit work directly to `main`.
+**Branch strategy:** `main` is the working branch. Upstream (t3code) is tracked via the `upstream` remote — sync with `git fetch upstream`.
 
 ## Build & Verification
 
