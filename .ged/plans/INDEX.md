@@ -1,4 +1,4 @@
 # Plan Index
 
-| ID | Title | Status | Created | Completed |
-| --- | --- | --- | --- | --- |
+| ID  | Title | Status | Created | Completed |
+| --- | ----- | ------ | ------- | --------- |

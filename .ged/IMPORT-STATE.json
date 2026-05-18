@@ -1,8 +1,5 @@
 {
-  "accepted": [
-    "AGENTS.md",
-    "CLAUDE.md"
-  ],
+  "accepted": ["AGENTS.md", "CLAUDE.md"],
   "rejected": [],
   "pending": []
 }
