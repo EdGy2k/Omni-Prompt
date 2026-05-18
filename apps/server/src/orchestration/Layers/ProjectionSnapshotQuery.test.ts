@@ -292,6 +292,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
           },
           interactionMode: "default",
           runtimeMode: "full-access",
+          gedWorkflowEnabled: true,
           branch: null,
           worktreePath: null,
           latestTurn: {
@@ -402,6 +403,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
           },
           interactionMode: "default",
           runtimeMode: "full-access",
+          gedWorkflowEnabled: true,
           branch: null,
           worktreePath: null,
           latestTurn: {
