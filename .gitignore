@@ -31,3 +31,5 @@ dist-electron/
 .playwright-mcp/
 .agents/
 .codex/
+.gedoc/
+.gedcode/
