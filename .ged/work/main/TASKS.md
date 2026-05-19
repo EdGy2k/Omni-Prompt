@@ -1,30 +1,25 @@
-# Tasks: Fix React update loop on new chat
+# Tasks: Fix Electron-only React update loop on new chat
 
 ## Goal
 
-Creating a new chat must not trigger React error #185 / maximum update depth. The fix should avoid route/effect loops during draft creation and draft-to-server promotion.
+Creating a new chat in the Electron desktop app must not trigger React error #185 / maximum update depth. Browser web UI currently does not reproduce, so the fix should account for desktop's faster bootstrap/config/welcome timing.
 
-## Clarified scope
+## Scope
 
-- Users: web UI users creating a new chat.
-- Scope: apps/web routing/state handling around new-chat draft and server thread routes.
-- Constraints: preserve existing draft reuse/promotion behavior; avoid broad ChatView refactors unless required.
-
-## Skill-fit
-
-- Relevant existing guidance: ged-execution/ged-verification workflow, project React/TanStack Router/Zustand patterns.
-- No external skill needed; this is a repo-local React bug fix.
+- apps/web route/state handling for new-chat drafts and draft-to-server promotion.
+- Desktop-amplified React effect/update loops caused by unstable object dependencies or repeated navigation/state writes.
+- Avoid broad ChatView refactors unless the narrower route/draft stabilization is insufficient.
 
 ## Recon findings
 
-- New chat routes create fresh `threadRef` objects via route param selectors.
-- Server thread route has effects depending on `threadRef` object identity and redirects to `/` when the route thread is absent but the environment has threads.
-- Draft route navigates to canonical server thread when promotion is observed.
-- Unstable route ref identity can repeatedly recreate selectors/effect deps and amplify redirect/promotion loops.
+- Desktop immediately authenticates, starts server state sync, receives config/welcome/shell updates, and uses hash history; this can amplify update loops that web timing hides.
+- Server thread route still has effects depending on `threadRef` object identity after previous fix.
+- Draft route still constructs a fresh canonical object from `serverThread`; its effects use primitive ids, but render branch still uses the object.
+- ChatView remains a secondary suspect due to many effects, but the highest-confidence remaining issue is route/effect dependencies and repeated navigation/finalization.
 
 ## Implementation slices
 
-1. Stabilize route-derived thread refs in server and draft route components using primitive route params / memoized refs or stable keys.
-2. Make redirect/promotion effects depend on stable primitive keys rather than fresh object references.
-3. Add/adjust focused tests or type-level coverage where practical for helper behavior; otherwise rely on lint/typecheck and manual route reasoning.
+1. Remove `threadRef` object identity from server-route effect dependency arrays by building refs inside effects/callbacks from primitive route params where needed.
+2. Make draft route canonicalization primitive-first; only construct objects for rendering/call boundaries after primitive canonical ids are known.
+3. Add idempotence guards around replace navigation/finalization if repeated identical navigation can occur under Electron hash history.
 4. Run `bun fmt`, `bun lint`, and `bun typecheck`.

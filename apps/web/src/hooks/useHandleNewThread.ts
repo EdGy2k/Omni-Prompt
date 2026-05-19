@@ -169,23 +169,24 @@ export function useHandleNewThread() {
   const activeThread = useStore(
     useMemo(() => createThreadSelectorByRef(routeThreadRef), [routeThreadRef]),
   );
-  const getDraftThread = useComposerDraftStore((store) => store.getDraftThread);
-  const activeDraftThread = useComposerDraftStore((store) => {
-    if (!routeTarget) return null;
-    const thread =
-      routeTarget.kind === "server"
-        ? getDraftThread(routeTarget.threadRef)
-        : store.getDraftSession(routeTarget.draftId);
-    if (!thread) return null;
-    const draft =
-      routeTarget.kind === "server"
-        ? store.getComposerDraft(routeTarget.threadRef)
-        : store.getComposerDraft(routeTarget.draftId);
-    return {
-      ...thread,
-      gedWorkflowEnabled: draft?.gedWorkflowEnabled ?? null,
-    };
-  });
+  const activeDraftThread = useComposerDraftStore(
+    useShallow((store) => {
+      if (!routeTarget) return null;
+      const thread =
+        routeTarget.kind === "server"
+          ? store.getDraftThread(routeTarget.threadRef)
+          : store.getDraftSession(routeTarget.draftId);
+      if (!thread) return null;
+      const draft =
+        routeTarget.kind === "server"
+          ? store.getComposerDraft(routeTarget.threadRef)
+          : store.getComposerDraft(routeTarget.draftId);
+      return {
+        ...thread,
+        gedWorkflowEnabled: draft?.gedWorkflowEnabled ?? null,
+      };
+    }),
+  );
   const projects = useStore(useShallow((store) => selectProjectsAcrossEnvironments(store)));
   const orderedProjects = useMemo(() => {
     return orderItemsByPreferredIds({
