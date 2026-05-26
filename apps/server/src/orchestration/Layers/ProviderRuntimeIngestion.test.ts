@@ -2393,6 +2393,44 @@ describe("ProviderRuntimeIngestion", () => {
     expect(thread.session?.lastError).toBeNull();
   });
 
+  it("adds CLI reauthentication guidance to authentication runtime warnings", async () => {
+    const harness = await createHarness();
+    const now = "2026-01-01T00:00:00.000Z";
+
+    harness.emit({
+      type: "runtime.warning",
+      eventId: asEventId("evt-auth-warning"),
+      provider: ProviderDriverKind.make("codex"),
+      createdAt: now,
+      threadId: asThreadId("thread-1"),
+      payload: {
+        message: "Failed to authenticate. API Error: 401 Invalid authentication credentials",
+      },
+    });
+
+    const thread = await waitForThread(harness.readModel, (entry) =>
+      entry.activities.some(
+        (activity: ProviderRuntimeTestActivity) =>
+          activity.id === "evt-auth-warning" && activity.kind === "runtime.warning",
+      ),
+    );
+    const warning = thread.activities.find(
+      (activity: ProviderRuntimeTestActivity) => activity.id === "evt-auth-warning",
+    );
+    const warningPayload =
+      warning?.payload && typeof warning.payload === "object"
+        ? (warning.payload as Record<string, unknown>)
+        : undefined;
+
+    expect(warningPayload?.message).toBe(
+      [
+        "Failed to authenticate. API Error: 401 Invalid authentication credentials",
+        "",
+        "Try reauthenticating in the CLI: run `codex login` for Codex, or `/login` inside Claude Code.",
+      ].join("\n"),
+    );
+  });
+
   it("maps session/thread lifecycle and item.started into session/activity projections", async () => {
     const harness = await createHarness();
     const now = "2026-01-01T00:00:00.000Z";
