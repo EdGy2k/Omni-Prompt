@@ -167,6 +167,31 @@ function truncateDetail(value: string, limit = 180): string {
   return value.length > limit ? `${value.slice(0, limit - 3)}...` : value;
 }
 
+const AUTHENTICATION_REAUTHENTICATION_TIP =
+  "Try reauthenticating in the CLI: run `codex login` for Codex, or `/login` inside Claude Code.";
+
+function shouldShowReauthenticationTip(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("failed to authenticate") ||
+    normalized.includes("invalid authentication credentials") ||
+    normalized.includes("not authenticated")
+  );
+}
+
+function formatRuntimeAuthMessage(message: string): string {
+  const truncated = truncateDetail(message);
+  if (!shouldShowReauthenticationTip(message)) {
+    return truncated;
+  }
+
+  if (truncated.includes(AUTHENTICATION_REAUTHENTICATION_TIP)) {
+    return truncated;
+  }
+
+  return `${truncated}\n\n${AUTHENTICATION_REAUTHENTICATION_TIP}`;
+}
+
 function normalizeProposedPlanMarkdown(planMarkdown: string | undefined): string | undefined {
   const trimmed = planMarkdown?.trim();
   if (!trimmed) {
@@ -337,7 +362,7 @@ function runtimeEventToActivities(
           kind: "runtime.error",
           summary: "Runtime error",
           payload: {
-            message: truncateDetail(event.payload.message),
+            message: formatRuntimeAuthMessage(event.payload.message),
           },
           turnId: toTurnId(event.turnId) ?? null,
           ...maybeSequence,
@@ -354,7 +379,7 @@ function runtimeEventToActivities(
           kind: "runtime.warning",
           summary: "Runtime warning",
           payload: {
-            message: truncateDetail(event.payload.message),
+            message: formatRuntimeAuthMessage(event.payload.message),
             ...(event.payload.detail !== undefined ? { detail: event.payload.detail } : {}),
           },
           turnId: toTurnId(event.turnId) ?? null,
