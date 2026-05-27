@@ -2,64 +2,35 @@
 
 ## Plan
 
-- `bun run test` targeted suites:
-  - composer draft store tests for per-chat Ged toggle persistence and cleanup.
-  - orchestration contract/projection/server tests for thread-created/meta-updated workflow field.
-  - Ged workflow guard/service tests or provider reactor tests validating disabled threads skip injection/enforcement.
-- Required completion checks:
-  - `bun fmt`
-  - `bun lint`
-  - `bun typecheck`
+No source implementation has started yet. For the initial implementation slice,
+use focused tests before the required repo-wide checks.
+
+## Initial Slice Test Coverage
+
+- Service test: invoking `ged-explorer` creates a child thread with copied
+  project/worktree/model context and `gedWorkflowEnabled: false`.
+- Activity test: parent receives an explorer-started activity; child receives a
+  role-child activity referencing the parent and invocation id.
+- Provider reactor integration test: child `thread.turn.start` routes through
+  `ProviderInstanceId` and calls `sendTurn` with `gedWorkflowEnabled: false`.
+- Safety test: child uses constrained runtime mode instead of inheriting a
+  full-access parent mode.
+- Prompt test: explorer prompt states read-only role boundaries and required
+  output shape.
+- Later durable-state test: repeated invocation id does not create duplicate
+  child threads once invocation persistence exists.
+
+## Required Completion Checks
+
+- `bun fmt`
+- `bun lint`
+- `bun typecheck`
+- Targeted `bun run test ...` suites for changed server/contracts/web packages.
 
 ## Evidence
 
-- `bun fmt` passed.
-- `bun lint` passed with 0 errors. Existing warnings remain in unrelated/react-hook lint areas.
+- `bun fmt` passed: oxfmt completed on 1123 files.
+- `bun lint` passed with 0 errors and 10 existing warnings.
 - `bun typecheck` passed across all 14 Turbo packages.
-- `bun run test --filter=@t3tools/web -- src/composerDraftStore.test.ts src/lib/chatThreadActions.test.ts` passed: 71 tests.
-- `bun run test --filter=@t3tools/contracts -- src/orchestration.test.ts src/provider.test.ts` passed: 49 tests.
-- `bun run test --filter=t3 -- src/orchestration/projector.test.ts src/persistence/Layers/ProjectionRepositories.test.ts` passed: 12 tests.
-- Read-only verifier found two medium issues; both were addressed before final required checks:
-  - Contextual new-thread inheritance now passes the active chat Ged state explicitly instead of applying sticky Ged state to unrelated drafts.
-  - Provider turn dispatch now preserves omitted `gedWorkflowEnabled` so the Ged guard can still consult server defaults.
-
-# gedcode-worktree-paths-and-push-remotes
-
-Planned verification:
-
-- `bun fmt`
-- `bun lint`
-- `bun typecheck`
-
-Focused coverage to add/update:
-
-- CLI config default path resolves under `~/.gedcode`.
-- Temporary worktree branch generation uses the new namespace.
-- Legacy `gedcode/<token>` refs are still recognized as temporary worktree refs.
-
-Results:
-
-- `bun fmt` passed.
-- `bunx vitest run packages/shared/src/git.test.ts scripts/dev-runner.test.ts` passed: 2 files, 29 tests.
-- `bunx vitest run apps/server/src/cli/config.test.ts apps/server/src/vcs/GitVcsDriverCore.test.ts packages/ssh/src/tunnel.test.ts` passed: 3 files, 34 tests.
-- `bunx vitest run --config vitest.browser.config.ts src/components/ChatView.browser.tsx` from `apps/web` ran 74/75 passing; one pre-existing unrelated plan-mode lookup failed.
-- `bun lint` passed with existing warnings.
-- `bun typecheck` passed: 14 packages.
-- `git diff --check` passed.
-
-# upstream-push-fallback
-
-Planned verification:
-
-- Focused VCS regression test for existing-upstream fallback.
-- `bun fmt`
-- `bun lint`
-- `bun typecheck`
-
-Results:
-
-- `bunx vitest run apps/server/src/vcs/GitVcsDriverCore.test.ts` passed: 1 file, 14 tests.
-- `bun fmt` passed.
-- `bun lint` passed with existing warnings.
-- `bun typecheck` passed: 14 packages.
-- `git diff --check` passed.
+- Read-only verifier reviewed the final planning diff and found no blockers.
+- Source implementation is pending user approval of the initial design.
