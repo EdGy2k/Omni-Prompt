@@ -20,6 +20,7 @@ import {
   ProjectionSnapshotQuery,
   type ProjectionSnapshotQueryShape,
 } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
+import { ServerSettingsService } from "../../serverSettings.ts";
 import { GedRoleInvocationService } from "../Services/GedRoleInvocationService.ts";
 import { GedRoleInvocationServiceLive } from "./GedRoleInvocationServiceLive.ts";
 
@@ -31,12 +32,22 @@ const modelSelection = {
   options: [{ id: "reasoning", value: "high" }],
 };
 
+const globalRoleModelSelection = {
+  instanceId: ProviderInstanceId.make("claude_global"),
+  model: "claude-global",
+};
+const projectRoleModelSelection = {
+  instanceId: ProviderInstanceId.make("codex_project"),
+  model: "codex-project",
+};
+
 const project = {
   id: projectId,
   title: "Project",
   workspaceRoot: "/repo",
   repositoryIdentity: null,
   defaultModelSelection: modelSelection,
+  roleModelSelections: {},
   scripts: [],
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
@@ -86,6 +97,7 @@ const makeProjection = (
 const runWith = async (
   commands: OrchestrationCommand[],
   projection: ProjectionSnapshotQueryShape = makeProjection(),
+  settingsOverrides: Parameters<typeof ServerSettingsService.layerTest>[0] = {},
 ) => {
   const engine: OrchestrationEngineShape = {
     readEvents: () => Stream.empty,
@@ -113,6 +125,7 @@ const runWith = async (
           Layer.mergeAll(
             Layer.succeed(OrchestrationEngineService, engine),
             Layer.succeed(ProjectionSnapshotQuery, projection),
+            ServerSettingsService.layerTest(settingsOverrides),
           ),
         ),
       ),
@@ -192,6 +205,56 @@ describe("GedRoleInvocationServiceLive", () => {
     expect(commands).toEqual([]);
   });
 
+  it("uses global role model override for child thread and turn", async () => {
+    const commands: OrchestrationCommand[] = [];
+    await runWith(commands, makeProjection(), {
+      gedModelSelections: {
+        mainThread: null,
+        roles: { "ged-explorer": globalRoleModelSelection },
+      },
+    });
+
+    expect(commands[0]).toMatchObject({
+      type: "thread.create",
+      modelSelection: globalRoleModelSelection,
+    });
+    expect(commands[3]).toMatchObject({
+      type: "thread.turn.start",
+      modelSelection: globalRoleModelSelection,
+    });
+  });
+
+  it("uses project role model override before global role override", async () => {
+    const commands: OrchestrationCommand[] = [];
+    await runWith(
+      commands,
+      makeProjection({
+        getProjectShellById: () =>
+          Effect.succeed(
+            Option.some({
+              ...project,
+              roleModelSelections: { "ged-explorer": projectRoleModelSelection },
+            }),
+          ),
+      }),
+      {
+        gedModelSelections: {
+          mainThread: null,
+          roles: { "ged-explorer": globalRoleModelSelection },
+        },
+      },
+    );
+
+    expect(commands[0]).toMatchObject({
+      type: "thread.create",
+      modelSelection: projectRoleModelSelection,
+    });
+    expect(commands[3]).toMatchObject({
+      type: "thread.turn.start",
+      modelSelection: projectRoleModelSelection,
+    });
+  });
+
   it("fails before dispatch for invalid invocation ids", async () => {
     const commands: OrchestrationCommand[] = [];
     const engine: OrchestrationEngineShape = {
@@ -217,6 +280,7 @@ describe("GedRoleInvocationServiceLive", () => {
               Layer.mergeAll(
                 Layer.succeed(OrchestrationEngineService, engine),
                 Layer.succeed(ProjectionSnapshotQuery, makeProjection()),
+                ServerSettingsService.layerTest(),
               ),
             ),
           ),

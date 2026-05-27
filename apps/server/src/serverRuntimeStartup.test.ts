@@ -4,6 +4,7 @@ import { assert, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
@@ -23,6 +24,7 @@ import {
   resolveWelcomeBase,
   ServerRuntimeStartupError,
 } from "./serverRuntimeStartup.ts";
+import { ServerSettingsService } from "./serverSettings.ts";
 
 it("uses the canonical Codex default for auto-bootstrapped model selection", () => {
   assert.deepStrictEqual(getAutoBootstrapDefaultModelSelection(), {
@@ -172,7 +174,7 @@ it.effect("resolveAutoBootstrapWelcomeTargets returns existing project and threa
           ),
         streamDomainEvents: Stream.empty,
       } satisfies OrchestrationEngineShape),
-      Effect.provide(NodeServices.layer),
+      Effect.provide(Layer.mergeAll(ServerSettingsService.layerTest(), NodeServices.layer)),
     );
 
     assert.deepStrictEqual(targets, {
@@ -214,7 +216,7 @@ it.effect("resolveAutoBootstrapWelcomeTargets creates a project and thread when 
           ),
         streamDomainEvents: Stream.empty,
       } satisfies OrchestrationEngineShape),
-      Effect.provide(NodeServices.layer),
+      Effect.provide(Layer.mergeAll(ServerSettingsService.layerTest(), NodeServices.layer)),
     );
 
     assert.equal(typeof targets.bootstrapProjectId, "string");

@@ -1,4 +1,4 @@
-import type { ThreadId } from "@t3tools/contracts";
+import type { ServerSettingsError, ThreadId } from "@t3tools/contracts";
 import * as Context from "effect/Context";
 import * as Data from "effect/Data";
 import type * as Effect from "effect/Effect";
@@ -43,7 +43,8 @@ export type GedRoleInvocationError =
   | GedRoleInvocationInputError
   | GedRoleInvocationContextError
   | GedRoleInvocationDispatchError
-  | ProjectionRepositoryError;
+  | ProjectionRepositoryError
+  | ServerSettingsError;
 
 export interface GedRoleInvocationServiceShape {
   readonly invoke: (

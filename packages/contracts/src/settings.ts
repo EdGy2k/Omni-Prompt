@@ -339,6 +339,14 @@ export type ObservabilitySettings = typeof ObservabilitySettings.Type;
 
 export const DEFAULT_AUTOMATIC_GIT_FETCH_INTERVAL = Duration.seconds(30);
 
+export const GedModelSelections = Schema.Struct({
+  mainThread: Schema.NullOr(ModelSelection).pipe(Schema.withDecodingDefault(Effect.succeed(null))),
+  roles: Schema.Record(TrimmedNonEmptyString, ModelSelection).pipe(
+    Schema.withDecodingDefault(Effect.succeed({})),
+  ),
+});
+export type GedModelSelections = typeof GedModelSelections.Type;
+
 export const ServerSettings = Schema.Struct({
   enableAssistantStreaming: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   gedWorkflowEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
@@ -351,6 +359,7 @@ export const ServerSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed("local" as const satisfies ThreadEnvMode)),
   ),
   addProjectBaseDirectory: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  gedModelSelections: GedModelSelections.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
   textGenerationModelSelection: ModelSelection.pipe(
     Schema.withDecodingDefault(
       Effect.succeed({
@@ -409,6 +418,11 @@ export const DEFAULT_UNIFIED_SETTINGS: UnifiedSettings = {
 
 // ── Server Settings Patch (replace with a Schema.deepPartial if available) ──────────────────────────────────────────
 
+const GedModelSelectionsPatch = Schema.Struct({
+  mainThread: Schema.optionalKey(Schema.NullOr(ModelSelection)),
+  roles: Schema.optionalKey(Schema.Record(TrimmedNonEmptyString, ModelSelection)),
+});
+
 const ModelSelectionPatch = Schema.Struct({
   instanceId: Schema.optionalKey(ProviderInstanceId),
   model: Schema.optionalKey(TrimmedNonEmptyString),
@@ -454,6 +468,7 @@ export const ServerSettingsPatch = Schema.Struct({
   defaultThreadEnvMode: Schema.optionalKey(ThreadEnvMode),
   addProjectBaseDirectory: Schema.optionalKey(TrimmedString),
   textGenerationModelSelection: Schema.optionalKey(ModelSelectionPatch),
+  gedModelSelections: Schema.optionalKey(GedModelSelectionsPatch),
   observability: Schema.optionalKey(
     Schema.Struct({
       otlpTracesUrl: Schema.optionalKey(TrimmedString),

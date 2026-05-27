@@ -514,6 +514,13 @@ export function GeneralSettingsPanel() {
     DEFAULT_UNIFIED_SETTINGS.textGenerationModelSelection ?? null,
   );
 
+  const gedMainModelSelection =
+    settings.gedModelSelections.mainThread ?? settings.textGenerationModelSelection;
+  const gedExplorerModelSelection =
+    settings.gedModelSelections.roles["ged-explorer"] ?? gedMainModelSelection;
+  const isGedMainModelDirty = settings.gedModelSelections.mainThread !== null;
+  const isGedExplorerModelDirty = settings.gedModelSelections.roles["ged-explorer"] !== undefined;
+
   return (
     <SettingsPageContainer>
       <SettingsSection title="General">
@@ -691,6 +698,98 @@ export function GeneralSettingsPanel() {
                 updateSettings({ gedWorkflowEnabled: Boolean(checked) })
               }
               aria-label="Enable Ged workflow"
+            />
+          }
+        />
+
+        <SettingsRow
+          title="Ged main thread model"
+          description="Default provider/model for new Ged parent threads when a project does not override it."
+          resetAction={
+            isGedMainModelDirty ? (
+              <SettingResetButton
+                label="Ged main thread model"
+                onClick={() =>
+                  updateSettings({
+                    gedModelSelections: {
+                      mainThread: null,
+                      roles: settings.gedModelSelections.roles,
+                    },
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <ProviderModelPicker
+              activeInstanceId={gedMainModelSelection.instanceId}
+              model={gedMainModelSelection.model}
+              lockedProvider={null}
+              instanceEntries={gitModelInstanceEntries}
+              modelOptionsByInstance={getCustomModelOptionsByInstance(
+                settings,
+                serverProviders,
+                gedMainModelSelection.instanceId,
+                gedMainModelSelection.model,
+              )}
+              triggerVariant="outline"
+              triggerClassName="min-w-0 max-w-none shrink-0 text-foreground/90 hover:text-foreground"
+              onInstanceModelChange={(instanceId, model) =>
+                updateSettings({
+                  gedModelSelections: {
+                    mainThread: createModelSelection(instanceId, model),
+                    roles: settings.gedModelSelections.roles,
+                  },
+                })
+              }
+            />
+          }
+        />
+
+        <SettingsRow
+          title="Ged explorer model"
+          description="Optional provider/model override for ged-explorer child threads. Clear to inherit the parent thread model at invocation time; the picker shows the main-thread fallback."
+          resetAction={
+            isGedExplorerModelDirty ? (
+              <SettingResetButton
+                label="Ged explorer model"
+                onClick={() => {
+                  const { "ged-explorer": _removed, ...roles } = settings.gedModelSelections.roles;
+                  updateSettings({
+                    gedModelSelections: {
+                      mainThread: settings.gedModelSelections.mainThread,
+                      roles,
+                    },
+                  });
+                }}
+              />
+            ) : null
+          }
+          control={
+            <ProviderModelPicker
+              activeInstanceId={gedExplorerModelSelection.instanceId}
+              model={gedExplorerModelSelection.model}
+              lockedProvider={null}
+              instanceEntries={gitModelInstanceEntries}
+              modelOptionsByInstance={getCustomModelOptionsByInstance(
+                settings,
+                serverProviders,
+                gedExplorerModelSelection.instanceId,
+                gedExplorerModelSelection.model,
+              )}
+              triggerVariant="outline"
+              triggerClassName="min-w-0 max-w-none shrink-0 text-foreground/90 hover:text-foreground"
+              onInstanceModelChange={(instanceId, model) =>
+                updateSettings({
+                  gedModelSelections: {
+                    mainThread: settings.gedModelSelections.mainThread,
+                    roles: {
+                      ...settings.gedModelSelections.roles,
+                      "ged-explorer": createModelSelection(instanceId, model),
+                    },
+                  },
+                })
+              }
             />
           }
         />

@@ -33,6 +33,12 @@ import {
   createModelSelection,
   resolvePromptInjectedEffort,
 } from "@t3tools/shared/model";
+import {
+  clearGedRoleModelSelection,
+  resolveGedMainThreadModelSelection,
+  resolveGedRoleModelSelection,
+  setGedRoleModelSelection,
+} from "@t3tools/shared/gedModelSelection";
 import { projectScriptCwd, projectScriptRuntimeEnv } from "@t3tools/shared/projectScripts";
 import { truncate } from "@t3tools/shared/String";
 import { Debouncer } from "@tanstack/react-pacer";
@@ -118,7 +124,11 @@ import {
 import { newCommandId, newDraftId, newMessageId, newThreadId } from "~/lib/utils";
 import { getProviderModelCapabilities, resolveSelectableProvider } from "../providerModels";
 import { useSettings } from "../hooks/useSettings";
-import { resolveAppModelSelectionForInstance } from "../modelSelection";
+import {
+  getCustomModelOptionsByInstance,
+  resolveAppModelSelectionForInstance,
+} from "../modelSelection";
+import { deriveProviderInstanceEntries, sortProviderInstanceEntries } from "../providerInstances";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import {
   deriveLogicalProjectKeyFromSettings,
@@ -803,10 +813,14 @@ export default function ChatView(props: ChatViewProps) {
         ? buildLocalDraftThread(
             threadId,
             draftThread,
-            fallbackDraftProject?.defaultModelSelection ?? {
-              instanceId: ProviderInstanceId.make("codex"),
-              model: DEFAULT_MODEL,
-            },
+            resolveGedMainThreadModelSelection({
+              projectDefaultModelSelection: fallbackDraftProject?.defaultModelSelection,
+              globalMainModelSelection: settings.gedModelSelections.mainThread,
+              fallbackModelSelection: {
+                instanceId: ProviderInstanceId.make("codex"),
+                model: DEFAULT_MODEL,
+              },
+            }),
             composerGedWorkflowEnabled ?? settings.gedWorkflowEnabled,
             localDraftError,
           )
@@ -814,6 +828,7 @@ export default function ChatView(props: ChatViewProps) {
     [
       draftThread,
       fallbackDraftProject?.defaultModelSelection,
+      settings.gedModelSelections.mainThread,
       composerGedWorkflowEnabled,
       settings.gedWorkflowEnabled,
       localDraftError,
@@ -1172,6 +1187,7 @@ export default function ChatView(props: ChatViewProps) {
   const threadProvider =
     activeThread?.modelSelection.instanceId ??
     activeProject?.defaultModelSelection?.instanceId ??
+    settings.gedModelSelections.mainThread?.instanceId ??
     null;
   const lockedProvider = deriveLockedProvider({
     thread: activeThread,
@@ -1304,6 +1320,53 @@ export default function ChatView(props: ChatViewProps) {
     versionMismatchServerLabel,
   ]);
   const providerStatuses = serverConfig?.providers ?? EMPTY_PROVIDERS;
+  const gedModelFallbackSelection = useMemo<ModelSelection>(
+    () => ({
+      instanceId: ProviderInstanceId.make("codex"),
+      model: DEFAULT_MODEL,
+    }),
+    [],
+  );
+  const gedModelInstanceEntries = useMemo(
+    () => sortProviderInstanceEntries(deriveProviderInstanceEntries(providerStatuses)),
+    [providerStatuses],
+  );
+  const gedModelOptionsByInstance = useMemo(
+    () => getCustomModelOptionsByInstance(settings, providerStatuses),
+    [settings, providerStatuses],
+  );
+  const resolvedProjectGedMainModelSelection = useMemo(
+    () =>
+      activeProject
+        ? resolveGedMainThreadModelSelection({
+            projectDefaultModelSelection: activeProject.defaultModelSelection,
+            globalMainModelSelection: settings.gedModelSelections.mainThread,
+            fallbackModelSelection: gedModelFallbackSelection,
+          })
+        : null,
+    [activeProject, gedModelFallbackSelection, settings.gedModelSelections.mainThread],
+  );
+  const resolvedProjectGedExplorerModelSelection = useMemo(
+    () =>
+      activeProject
+        ? resolveGedRoleModelSelection({
+            role: "ged-explorer",
+            projectRoleModelSelections: activeProject.roleModelSelections,
+            globalRoleModelSelections: settings.gedModelSelections.roles,
+            parentThreadModelSelection: activeThread?.modelSelection,
+            projectDefaultModelSelection: activeProject.defaultModelSelection,
+            globalMainModelSelection: settings.gedModelSelections.mainThread,
+            fallbackModelSelection: gedModelFallbackSelection,
+          })
+        : null,
+    [
+      activeProject,
+      activeThread?.modelSelection,
+      gedModelFallbackSelection,
+      settings.gedModelSelections.mainThread,
+      settings.gedModelSelections.roles,
+    ],
+  );
   const unlockedSelectedProvider = resolveSelectableProvider(
     providerStatuses,
     selectedProviderByThreadId ?? threadProvider ?? ProviderDriverKind.make("codex"),
@@ -1688,6 +1751,7 @@ export default function ChatView(props: ChatViewProps) {
     activeThread?.session?.providerInstanceId ??
     activeThread?.modelSelection.instanceId ??
     activeProject?.defaultModelSelection?.instanceId ??
+    settings.gedModelSelections.mainThread?.instanceId ??
     null;
   const activeProviderStatus = useMemo(() => {
     if (activeProviderInstanceId) {
@@ -2036,6 +2100,38 @@ export default function ChatView(props: ChatViewProps) {
       }
     },
     [environmentId],
+  );
+  const setProjectGedMainModel = useCallback(
+    async (selection: ModelSelection | null) => {
+      if (!activeProject) return;
+      const api = readEnvironmentApi(environmentId);
+      if (!api) return;
+
+      await api.orchestration.dispatchCommand({
+        type: "project.meta.update",
+        commandId: newCommandId(),
+        projectId: activeProject.id,
+        defaultModelSelection: selection,
+      });
+    },
+    [activeProject, environmentId],
+  );
+  const setProjectGedExplorerModel = useCallback(
+    async (selection: ModelSelection | null) => {
+      if (!activeProject) return;
+      const api = readEnvironmentApi(environmentId);
+      if (!api) return;
+
+      await api.orchestration.dispatchCommand({
+        type: "project.meta.update",
+        commandId: newCommandId(),
+        projectId: activeProject.id,
+        roleModelSelections: selection
+          ? setGedRoleModelSelection(activeProject.roleModelSelections, "ged-explorer", selection)
+          : clearGedRoleModelSelection(activeProject.roleModelSelections, "ged-explorer"),
+      });
+    },
+    [activeProject, environmentId],
   );
   const saveProjectScript = useCallback(
     async (input: NewProjectScriptInput) => {
@@ -3611,10 +3707,20 @@ export default function ChatView(props: ChatViewProps) {
           gitCwd={gitCwd}
           diffOpen={diffOpen}
           workflowState={workflowState}
+          projectGedMainModelSelection={activeProject?.defaultModelSelection ?? null}
+          projectGedExplorerModelSelection={
+            activeProject?.roleModelSelections?.["ged-explorer"] ?? null
+          }
+          resolvedGedMainModelSelection={resolvedProjectGedMainModelSelection}
+          resolvedGedExplorerModelSelection={resolvedProjectGedExplorerModelSelection}
+          gedModelInstanceEntries={gedModelInstanceEntries}
+          gedModelOptionsByInstance={gedModelOptionsByInstance}
           onRunProjectScript={runProjectScript}
           onAddProjectScript={saveProjectScript}
           onUpdateProjectScript={updateProjectScript}
           onDeleteProjectScript={deleteProjectScript}
+          onSetProjectGedMainModel={setProjectGedMainModel}
+          onSetProjectGedExplorerModel={setProjectGedExplorerModel}
           onToggleTerminal={toggleTerminalVisibility}
           onToggleDiff={onToggleDiff}
         />
@@ -3722,7 +3828,9 @@ export default function ChatView(props: ChatViewProps) {
                   workflowEnabled={gedWorkflowEnabled}
                   lockedProvider={lockedProvider}
                   providerStatuses={providerStatuses as ServerProvider[]}
-                  activeProjectDefaultModelSelection={activeProject?.defaultModelSelection}
+                  activeProjectDefaultModelSelection={
+                    activeProject?.defaultModelSelection ?? settings.gedModelSelections.mainThread
+                  }
                   activeThreadModelSelection={activeThread?.modelSelection}
                   activeThreadActivities={activeThread?.activities}
                   resolvedTheme={resolvedTheme}

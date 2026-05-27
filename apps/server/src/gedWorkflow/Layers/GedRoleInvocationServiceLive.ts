@@ -6,6 +6,7 @@ import {
   type OrchestrationCommand,
   type OrchestrationThreadActivity,
 } from "@t3tools/contracts";
+import { resolveGedRoleModelSelection } from "@t3tools/shared/gedModelSelection";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -16,6 +17,7 @@ import {
   type OrchestrationEngineShape,
 } from "../../orchestration/Services/OrchestrationEngine.ts";
 import { ProjectionSnapshotQuery } from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
+import { ServerSettingsService } from "../../serverSettings.ts";
 import { buildGedExplorerPrompt } from "../GedExplorerPrompt.ts";
 import {
   GedRoleInvocationContextError,
@@ -115,6 +117,7 @@ const failureActivity = (input: {
 const make = Effect.gen(function* () {
   const engine = yield* OrchestrationEngineService;
   const projections = yield* ProjectionSnapshotQuery;
+  const settingsService = yield* ServerSettingsService;
 
   const invoke: GedRoleInvocationServiceShape["invoke"] = (rawInput) =>
     Effect.gen(function* () {
@@ -125,6 +128,17 @@ const make = Effect.gen(function* () {
       const project = yield* projections
         .getProjectShellById(parent.projectId)
         .pipe(Effect.flatMap((option) => failIfNone(option, "Parent project not found")));
+
+      const settings = yield* settingsService.getSettings;
+      const roleModelSelection = resolveGedRoleModelSelection({
+        role: input.role,
+        projectRoleModelSelections: project.roleModelSelections,
+        globalRoleModelSelections: settings.gedModelSelections.roles,
+        parentThreadModelSelection: parent.modelSelection,
+        projectDefaultModelSelection: project.defaultModelSelection,
+        globalMainModelSelection: settings.gedModelSelections.mainThread,
+        fallbackModelSelection: parent.modelSelection,
+      });
 
       const createdAt = yield* nowIso;
       const childId = childThreadId(input.invocationId);
@@ -137,7 +151,7 @@ const make = Effect.gen(function* () {
         branch: parent.branch,
         worktreePath: parent.worktreePath,
         effectiveCwd,
-        modelSelection: parent.modelSelection,
+        modelSelection: roleModelSelection,
         request: input.request,
       });
 
@@ -225,7 +239,7 @@ const make = Effect.gen(function* () {
         threadId: childId,
         projectId: parent.projectId,
         title: "Ged Explorer",
-        modelSelection: parent.modelSelection,
+        modelSelection: roleModelSelection,
         gedWorkflowEnabled: false,
         runtimeMode: "approval-required",
         interactionMode: "default",
@@ -266,7 +280,7 @@ const make = Effect.gen(function* () {
           text: prompt,
           attachments: [],
         },
-        modelSelection: parent.modelSelection,
+        modelSelection: roleModelSelection,
         gedWorkflowEnabled: false,
         runtimeMode: "approval-required",
         interactionMode: "default",
