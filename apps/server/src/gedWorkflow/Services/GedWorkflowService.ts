@@ -26,4 +26,4 @@ export interface GedWorkflowServiceShape {
 export class GedWorkflowService extends Context.Service<
   GedWorkflowService,
   GedWorkflowServiceShape
->()("t3/gedWorkflow/Services/GedWorkflowService") {}
+>()("gedcode/gedWorkflow/Services/GedWorkflowService") {}
